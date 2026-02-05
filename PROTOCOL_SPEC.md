@@ -1,6 +1,8 @@
-## Messages relevés via Wireshark (convertis en JSON)
+# Messages relevés via Wireshark (convertis en JSON)
 
-- "Announce"
+## UDP
+
+### "Announce"
 
 ```json
 {
@@ -29,7 +31,12 @@
 }
 ```
 
-- "Ping"
+version:
+
+- "counter": Incrémenté à chaque update des informations
+- "generation" : Timestamp de la version actuelle
+
+### "Ping"
 
 ```json
 {
@@ -49,7 +56,12 @@
 }
 ```
 
-- "Pong"
+"last_seen.value":
+
+- "1": timestamp en secondes
+- "-6": microsecondes
+
+### "Pong"
 
 ```json
 {
