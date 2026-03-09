@@ -1,4 +1,4 @@
-use crate::structures::Recipe;
+use crate::structures::{Recipe, Step};
 use crate::token::Token;
 
 pub struct Parser {
@@ -29,29 +29,44 @@ impl Parser {
                 self.pos += 1;
                 Ok(token.clone())
             }
-            Some(found) => Err(format!("Attendu {:?}, trouvé {:?}", expected, found)),
+            Some(found) => Err(format!("Expected {:?}, found {:?}", expected, found)),
+            None => Err("Fin des tokens".to_string()),
+        }
+    }
+
+    fn expect_next_string(&mut self) -> Result<String, String> {
+        match self.tokens.get(self.pos) {
+            Some(Token::String(s)) => {
+                self.pos += 1;
+                Ok(s.clone())
+            }
+            Some(found) => Err(format!("Expected String, found {:?}", found)),
+            None => Err("Fin des tokens".to_string()),
+        }
+    }
+
+    fn expect_next_number(&mut self) -> Result<u32, String> {
+        match self.tokens.get(self.pos) {
+            Some(Token::Number(s)) => {
+                self.pos += 1;
+                Ok(s.clone())
+            }
+            Some(found) => Err(format!("Expected Number, found {:?}", found)),
             None => Err("Fin des tokens".to_string()),
         }
     }
 
     fn parse(&mut self) -> Result<Recipe, String>{
         let mut recipe: Recipe;
-        let name = match self.tokens.get(self.pos) {
-            Some(Token::String(s)) => {  // Déstructure pour récupérer &str ou String
-                self.pos += 1;
-                s.clone()  // ou *s si &str, selon le type de Token::String
-            }
-            Some(other) => return Err(format!("Attendu String, trouvé {:?}", other)),
-            None => return Err("Fin des tokens".to_string()),
-        };
 
-        let mut recipe = Recipe { name, ..Default::default() };
-
-        self.expect_next_token(Token::Equals);
+        let name = self.expect_next_string()?;
+        recipe = Recipe { name, ..Default::default() };
 
         //=
         // String
         // ->
+
+        
         // [ ?
         // String
         // (String=Number)?
