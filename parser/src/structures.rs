@@ -1,3 +1,5 @@
+
+
 #[derive(Debug, Clone)]
 pub enum BaseType {
     Tomato,
@@ -17,7 +19,7 @@ pub enum Step {
     AddOliveOil,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Recipe {
     pub name: String,
     pub steps: Vec<Step>,
