@@ -1,15 +1,19 @@
 mod token;
+mod parser;
 
 fn main() {
     use crate::token::Tokenizer;
 
-    let input = "Funghi =
+    let input = "Margherita =
     MakeDough
     -> AddBase(base_type=tomato)
-    -> AddMushrooms(amount=3)
-    -> AddCheese(amount=2)
-    -> Bake(duration=6)
+    -> [AddCheese(amount=2), AddBasil(leaves=3)]
+    -> Bake(duration=5)
+    -> AddPepperoni(slices=1)^12
     -> AddOliveOil";
     let mut t = Tokenizer::new(input);
     t.print_tokens();
+
+    let mut p = Parser::new(t.parse());
+    p.parse_recipe();
 }
