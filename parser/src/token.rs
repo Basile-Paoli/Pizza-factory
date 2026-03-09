@@ -1,13 +1,12 @@
 #[derive(Debug, Clone)]
 pub enum Token {
-    Name(String),      // Pizza Name
+    String(String),      // Pizza Name
     Equals,
     Arrow,             // ->
     LParen, RParen,
     LBracket, RBracket,
     Comma,
     Caret,             // ^
-    Ident(String),     // MakeDough, AddCheese, tomato
     Number(u32),
     Newline,
 }
@@ -43,11 +42,31 @@ impl<'a> Tokenizer<'a> {
             _ => {}
         }
 
-        
+        let start = self.pos;
 
-        let tok = Token::Name((input_byte[self.pos] as char).to_string());
-        self.pos += 1;
-        Some(tok)
+        if ch.is_ascii_digit() {
+            let mut end = self.pos;
+            while end < self.input.len() && (input_byte[end] as char).is_ascii_digit() {
+                end += 1;
+            }
+            let num: u32 = self.input[start..end].parse().unwrap();
+            self.pos = end;
+            return Some(Token::Number(num));
+        }
+
+        if ch.is_ascii_alphabetic(){
+
+            let mut end = self.pos;
+            while end < self.input.len() && ( (input_byte[end] as char).is_ascii_alphabetic() || (input_byte[end] as char) == '_' ) {
+                end +=1;
+            }
+
+            let string = self.input[start..end].to_string();
+            self.pos = end;
+            return Some(Token::String(string))
+        }
+
+        None
     }
 
     /*pub fn parse(&mut self) -> Vec<Token>{
@@ -69,7 +88,7 @@ impl<'a> Tokenizer<'a> {
         println!("Tokens:");
         while let Some(token) = self.next_token() {
             match &token {
-                Token::Name(name) => println!("  Name: \"{}\"", name),
+                Token::String(name) => println!("  String: \"{}\"", name),
                 Token::Equals => println!("  Equals"),
                 Token::Arrow => println!("  Arrow (->)"),
                 Token::LParen => println!("  LParen ("),
@@ -78,7 +97,6 @@ impl<'a> Tokenizer<'a> {
                 Token::RBracket => println!("  RBracket ]"),
                 Token::Comma => println!("  Comma ,"),
                 Token::Caret => println!("  Caret ^"),
-                Token::Ident(ident) => println!("  Ident: {}", ident),
                 Token::Number(num) => println!("  Number: {}", num),
                 Token::Newline => println!("  Newline"),
                 _ => {}
