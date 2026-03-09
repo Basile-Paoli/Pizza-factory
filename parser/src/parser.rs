@@ -77,6 +77,10 @@ impl Parser {
         // String
         // (String=Number)?
         // ^Number ?
+        // ,        <- Only if array
+        // String
+        // (String=Number)?
+        // ^Number ?
         // ] ?
 
         Ok(recipe)
