@@ -7,7 +7,6 @@ pub enum Token {
     LBracket, RBracket,
     Comma,
     Caret,             // ^
-    EqualsSign,
     Ident(String),     // MakeDough, AddCheese, tomato
     Number(u32),
     Newline,
@@ -45,17 +44,19 @@ impl<'a> Tokenizer<'a> {
         }
 
         
+
+        let tok = Token::Name((input_byte[self.pos] as char).to_string());
         self.pos += 1;
-        Some(Token::Name("1".to_string()))
+        Some(tok)
     }
 
-    pub fn parse(&mut self) -> Vec<Token>{
+    /*pub fn parse(&mut self) -> Vec<Token>{
         let mut tokens = Vec::new();
         while let Some(token) = self.next_token() {
             tokens.push(token);
         }
         tokens
-    }
+    }*/
 
     fn skip_whitespace(&mut self) {
         let bytes = self.input.as_bytes();
