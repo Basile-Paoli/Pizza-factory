@@ -32,7 +32,7 @@ impl<'a> Tokenizer<'a> {
         let ch = input_byte[self.pos] as char;
         match ch {
             '=' => { self.pos += 1; return Some(Token::Equals) }
-            '-' => { self.pos += 2; return Some(Token::Arrow) } // only "->" stat with "-"
+            '-' if self.pos + 1 < self.input.len() && input_byte[self.pos + 1] as char == '>' => { self.pos += 2; return Some(Token::Arrow) }
             '(' => { self.pos += 1; return Some(Token::LParen) }
             ')' => { self.pos += 1; return Some(Token::RParen) }
             '[' => { self.pos += 1; return Some(Token::LBracket) }
