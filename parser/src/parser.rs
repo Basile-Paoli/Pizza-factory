@@ -17,7 +17,6 @@ impl Parser {
         while self.pos < self.tokens.len(){
             let rec = self.parse()?;
             recipes.push(rec);
-            self.pos += 1;
         }
         Ok(recipes)
 
@@ -66,7 +65,14 @@ impl Parser {
         // String
         // ->
 
-        
+        self.expect_next_token(Token::Equals)?;
+        let dought = self.expect_next_string()?;
+        if dought != "MakeDough" {
+            return Err(format!("Unexpected step : {}", dought));
+        }
+        self.expect_next_token(Token::Arrow)?;
+
+        recipe.steps.push(Step::MakeDough);
         // [ ?
         // String
         // (String=Number)?
