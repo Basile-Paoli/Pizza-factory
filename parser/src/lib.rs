@@ -1,16 +1,21 @@
 mod structures;
 mod token;
-mod test;
+mod parser;
 
 #[cfg(test)]
 mod tests {
     use crate::token::Tokenizer;
-    use super::*;
 
     #[test]
     fn test_tokens() {
-        let input = " coucou cou cou";
+        let input = "Funghi =
+    MakeDough
+    -> AddBase(base_type=tomato)
+    -> AddMushrooms(amount=3)
+    -> AddCheese(amount=2)
+    -> Bake(duration=6)
+    -> AddOliveOil";
         let mut t = Tokenizer::new(input);
-        t.parse();
+        t.print_tokens()
     }
 }
