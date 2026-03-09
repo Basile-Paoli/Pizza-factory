@@ -1,8 +1,10 @@
 mod token;
+mod structures;
 mod parser;
 
 fn main() {
     use crate::token::Tokenizer;
+    use crate::parser::Parser;
 
     let input = "Margherita =
     MakeDough
@@ -12,8 +14,11 @@ fn main() {
     -> AddPepperoni(slices=1)^12
     -> AddOliveOil";
     let mut t = Tokenizer::new(input);
-    t.print_tokens();
+    //t.print_tokens();
 
     let mut p = Parser::new(t.parse());
-    p.parse_recipe();
+    match p.parse_recipe() {
+        Ok(recipes) => println!("Recipes: {:#?}", recipes),
+        Err(e) => println!("ERROR: {}", e),
+    }
 }
