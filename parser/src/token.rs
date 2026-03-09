@@ -69,13 +69,13 @@ impl<'a> Tokenizer<'a> {
         None
     }
 
-    /*pub fn parse(&mut self) -> Vec<Token>{
+    pub fn parse(&mut self) -> Vec<Token>{
         let mut tokens = Vec::new();
         while let Some(token) = self.next_token() {
             tokens.push(token);
         }
         tokens
-    }*/
+    }
 
     fn skip_whitespace(&mut self) {
         let bytes = self.input.as_bytes();
