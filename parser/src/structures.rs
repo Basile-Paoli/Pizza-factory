@@ -4,6 +4,11 @@ use crate::token::Tokenizer;
 pub struct PizzaParser;
 
 impl PizzaParser {
+    pub fn parse_single(input: &str) -> Result<Recipe, String> {
+        let recipe = PizzaParser::parse(input)?;
+        Ok(recipe[0].clone())
+    }
+
     pub fn parse(input: &str) -> Result<Vec<Recipe>, String> {
         // 1. Tokenize
         let mut tokenizer = Tokenizer::new(input);
