@@ -1,4 +1,4 @@
-use crate::structures::{BaseType, Recipe, Step};
+use crate::structures::{BaseType, Recipe, Step, Steps};
 use crate::token::Token;
 
 pub struct Parser {
@@ -78,6 +78,7 @@ impl Parser {
         step_name: String,
         step_param_name: String,
         step_param_value: Option<ParamValue>,
+        carret_time_param: u32
     ) -> Result<Step, String> {
         return match (step_name.as_str(), step_param_name.as_str(), &step_param_value) {
             ("AddBase", "base_type", &Some(ParamValue::String(ref s))) => {
@@ -88,12 +89,12 @@ impl Parser {
                 };
                 Ok(Step::AddBase { base_type })
             },
-            ("AddMushrooms", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddMushrooms { amount: n }),
-            ("AddCheese", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddCheese { amount: n }),
-            ("AddPepperoni", "slices", &Some(ParamValue::Number(n))) => Ok(Step::AddPepperoni { slices: n }),
-            ("AddGarlic", "cloves", &Some(ParamValue::Number(n))) => Ok(Step::AddGarlic { cloves: n }),
-            ("AddOregano", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddOregano { amount: n }),
-            ("AddBasil", "leaves", &Some(ParamValue::Number(n))) => Ok(Step::AddBasil { leaves: n }),
+            ("AddMushrooms", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddMushrooms { amount: n, repeat: carret_time_param }),
+            ("AddCheese", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddCheese { amount: n, repeat: carret_time_param }),
+            ("AddPepperoni", "slices", &Some(ParamValue::Number(n))) => Ok(Step::AddPepperoni { slices: n, repeat: carret_time_param }),
+            ("AddGarlic", "cloves", &Some(ParamValue::Number(n))) => Ok(Step::AddGarlic { cloves: n, repeat: carret_time_param }),
+            ("AddOregano", "amount", &Some(ParamValue::Number(n))) => Ok(Step::AddOregano { amount: n, repeat: carret_time_param }),
+            ("AddBasil", "leaves", &Some(ParamValue::Number(n))) => Ok(Step::AddBasil { leaves: n, repeat: carret_time_param }),
             ("Bake", "duration", &Some(ParamValue::Number(n))) => Ok(Step::Bake { duration: n }),
 
             ("MakeDough", "", &None) => Ok(Step::MakeDough),
@@ -101,8 +102,8 @@ impl Parser {
 
             (_, param, &Some(_)) if !param.is_empty() => Err(format!("{} ne prend pas de paramètres", step_name)),
             (_, "", &None) => Err(format!("{} requires parameters", step_name)),
-            _ => Err(format!("Unknown combination: step='{}' param='{}' value={:?}",
-                             step_name, step_param_name, step_param_value)),
+            _ => Err(format!("Unknown combination: step='{}' param='{}' value={:?}, time_carret={:?}",
+                             step_name, step_param_name, step_param_value, carret_time_param)),
         }
 
     }
@@ -134,7 +135,7 @@ impl Parser {
         self.expect_next_token(Token::Equals)?;
 
         let step = self.parse_step()?;
-        recipe.steps.push(step);
+        recipe.steps.push(Steps::Single(step));
 
         while true {
             if self.pos >= self.tokens.len() {
@@ -146,8 +147,11 @@ impl Parser {
             if let Token::LBracket = self.tokens[self.pos] {
                 self.pos += 1;
 
+                let mut steps = Vec::new();
+
                 loop {
-                    recipe.steps.push(self.parse_step()?);
+
+                    steps.push(self.parse_step()?);
 
                     match self.expect_next_token_array(&[Token::Comma, Token::RBracket]) {
                         Ok(token) => match token {
@@ -160,8 +164,9 @@ impl Parser {
                         }
                     }
                 }
+                recipe.steps.push(Steps::Multiple(steps));
             } else {
-                recipe.steps.push(self.parse_step()?);
+                recipe.steps.push( Steps::Single(self.parse_step()?));
             }
 
             if self.expect_next_token(Token::Caret).is_ok() {
@@ -177,6 +182,7 @@ impl Parser {
         self.print_current_token();
         let step_name = self.expect_next_string()?;
         let mut step_param_name = "".to_string();
+        let mut carret_time_param = 1;
         let mut step_param_value: Option<ParamValue> = None;
 
 
@@ -205,8 +211,11 @@ impl Parser {
             }
         }
 
-        let step = self.assign_to_step(step_name, step_param_name, step_param_value)?;
+        if self.expect_next_token(Token::Caret).is_ok() {
+            carret_time_param = self.expect_next_number()?
+        }
 
+        let step = self.assign_to_step(step_name, step_param_name, step_param_value, carret_time_param)?;
         Ok(step)
     }
 }
