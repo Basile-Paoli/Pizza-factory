@@ -10,6 +10,13 @@ mod tests {
     -> AddMushrooms(amount=3)
     -> AddCheese(amount=2)
     -> Bake(duration=6)
+    -> AddOliveOil
+    Funghi =
+    MakeDough
+    -> AddBase(base_type=tomato)
+    -> AddMushrooms(amount=3)
+    -> AddCheese(amount=2)
+    -> Bake(duration=6)
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();

@@ -141,7 +141,13 @@ impl Parser {
             if self.pos >= self.tokens.len() {
                 break;
             }
-            self.expect_next_token(Token::Arrow)?;
+
+            // This make sure you can parse multiple recipe in one string.
+            // If -> is not found, break
+            // Then the parent "while" (in the parse_recipe func) will only continue if there is more token
+            if self.expect_next_token(Token::Arrow).is_err() {
+                break
+            }
 
             // Parsing [String, String()]
             if let Token::LBracket = self.tokens[self.pos] {
