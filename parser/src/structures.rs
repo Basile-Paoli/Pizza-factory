@@ -1,4 +1,19 @@
+use crate::parser::Parser;
+use crate::token::Tokenizer;
 
+pub struct PizzaParser;
+
+impl PizzaParser {
+    pub fn parse(input: &str) -> Result<Vec<Recipe>, String> {
+        // 1. Tokenize
+        let mut tokenizer = Tokenizer::new(input);
+        let tokens = tokenizer.parse();
+
+        // 2. Parse
+        let mut parser = Parser::new(tokens);
+        parser.parse_recipe()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum BaseType {
@@ -36,16 +51,17 @@ impl Recipe {
 
     fn print_step(&self, step: &Step){
         match step {
-            Step::MakeDough => println!("🥖 MakeDough"),
-            Step::AddBase { base_type } => println!("🍕 AddBase({base_type:?})"),
-            Step::AddMushrooms { amount, repeat } => println!("🍄 AddMushrooms(amount: {amount})^{repeat:?}"),
-            Step::AddCheese { amount, repeat } => println!("🧀 AddCheese(amount: {amount})^{repeat:?}"),
-            Step::AddPepperoni { slices, repeat } => println!("🌭 AddPepperoni(slices: {slices})^{repeat:?}"),
-            Step::AddGarlic { cloves, repeat } => println!("🧄 AddGarlic(cloves: {cloves})^{repeat:?}"),
-            Step::AddOregano { amount, repeat } => println!("🌿 AddOregano(amount: {amount})^{repeat:?}"),
-            Step::AddBasil { leaves, repeat } => println!("🌱 AddBasil(leaves: {leaves})^{repeat:?}"),
+            Step::MakeDough => println!("MakeDough"),
+            Step::AddBase { base_type } => println!("AddBase({base_type:?})"),
+            Step::Bake { duration } => println!("Bake({duration:?})"),
+            Step::AddMushrooms { amount, repeat } => println!("AddMushrooms(amount: {amount})^{repeat:?}"),
+            Step::AddCheese { amount, repeat } => println!("AddCheese(amount: {amount})^{repeat:?}"),
+            Step::AddPepperoni { slices, repeat } => println!("AddPepperoni(slices: {slices})^{repeat:?}"),
+            Step::AddGarlic { cloves, repeat } => println!("AddGarlic(cloves: {cloves})^{repeat:?}"),
+            Step::AddOregano { amount, repeat } => println!("AddOregano(amount: {amount})^{repeat:?}"),
+            Step::AddBasil { leaves, repeat } => println!("AddBasil(leaves: {leaves})^{repeat:?}"),
             Step::AddOliveOil => println!("🛢️ AddOliveOil"),
-            _ => {}
+            _ => {println!("Unknow printing step")}
         }
     }
     fn print_steps(&self, steps: &Steps) {
