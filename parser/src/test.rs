@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{PizzaParser, Recipe};
+    use crate::{PizzaParser, Recipe, Step, Steps};
 
     #[test]
     fn test_funghi() {
@@ -11,7 +11,7 @@ mod tests {
     -> AddCheese(amount=2)
     -> Bake(duration=6)
     -> AddOliveOil
-    Funghi =
+    FunghiTwo =
     MakeDough
     -> AddBase(base_type=tomato)
     -> AddMushrooms(amount=3)
@@ -20,10 +20,17 @@ mod tests {
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();
+        assert_eq!(recipes.len(), 2);
+
         let recipe = &recipes[0];
         recipe.print_recipe();
         assert_eq!(recipe.name, "Funghi");
-        assert_eq!(recipe.steps.len(), 6);  // 6 steps attendus
+        assert_eq!(recipe.steps.len(), 6);
+
+        let recipe = &recipes[1];
+        recipe.print_recipe();
+        assert_eq!(recipe.name, "FunghiTwo");
+        assert_eq!(recipe.steps.len(), 6);
     }
 
     #[test]
@@ -36,7 +43,11 @@ mod tests {
     -> Bake(duration=6)";
 
         let recipes = PizzaParser::parse(input).unwrap();
-        assert_eq!(recipes[0].name, "Pepperoni");
+        assert_eq!(recipes.len(), 1);
+
+        let recipe = &recipes[0];
+        assert_eq!(recipe.name, "Pepperoni");
+        assert_eq!(recipe.steps.len(), 5);
     }
 
     #[test]
@@ -50,7 +61,17 @@ mod tests {
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();
-        assert_eq!(recipes[0].name, "Marinara");
+        assert_eq!(recipes.len(), 1);
+
+        let recipe = &recipes[0];
+        assert_eq!(recipe.name, "Marinara");
+        assert_eq!(recipe.steps.len(), 6);
+
+        if let Steps::Single(Step::AddOregano { amount, repeat }) = &recipe.steps[3] {
+            assert_eq!(*amount, 1);
+        } else {
+            panic!("Expected Steps::Single(Step::AddOregano) at index 3");
+        }
     }
 
     #[test]
@@ -58,14 +79,44 @@ mod tests {
         let input = "Margherita =
     MakeDough
     -> AddBase(base_type=tomato)
-    -> [AddCheese(amount=2), AddBasil(leaves=3)]
+    -> [AddCheese(amount=2), AddBasil(leaves=3)^2]
     -> Bake(duration=5)
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();
+        assert_eq!(recipes.len(), 1);
+
         let recipe = &recipes[0];
         recipe.print_recipe();
-        assert_eq!(recipe.steps.len(), 5);  // 1 MakeDough + 1 Multiple + 1 Bake + 1 OliveOil
+        assert_eq!(recipe.name, "Margherita");
+        assert_eq!(recipe.steps.len(), 5);
+
+        assert!(matches!(recipe.steps[2], Steps::Multiple(_)));
+
+        if let Steps::Multiple(steps) = &recipe.steps[2] {
+            assert_eq!(steps.len(), 2);
+
+            if let Step::AddCheese { amount, repeat } = &steps[0] {
+                assert_eq!(*amount, 2);
+                assert_eq!(*repeat, 1);
+            } else {
+                panic!("Expected AddCheese at Multiple[0]");
+            }
+
+            if let Step::AddBasil { leaves, repeat } = &steps[1] {
+                assert_eq!(*leaves, 3);
+                assert_eq!(*repeat, 2);
+            } else {
+                panic!("Expected AddBasil at Multiple[1]");
+            }
+        }
+
+
+        if let Steps::Single(Step::Bake { duration }) = &recipe.steps[3] {
+            assert_eq!(*duration, 5);
+        } else {
+            panic!("Expected Steps::Single(Step::Bake) at index 3");
+        }
     }
 
     #[test]
@@ -78,8 +129,24 @@ mod tests {
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();
+        assert_eq!(recipes.len(), 1);
+
         let recipe = &recipes[0];
         recipe.print_recipe();
+        assert_eq!(recipe.name, "QuattroFormaggi");
+
+        if let Steps::Single(Step::AddCheese { amount, repeat }) = &recipe.steps[2] {
+            assert_eq!(*amount, 1);
+            assert_eq!(*repeat, 4);
+        } else {
+            panic!("Expected Steps::Single(Step::AddCheese) at index 3 with duration 6 and repeat 4");
+        }
+
+        if let Steps::Single(Step::Bake { duration }) = &recipe.steps[3] {
+            assert_eq!(*duration, 6);
+        } else {
+            panic!("Expected Steps::Single(Step::Bake) at index 3");
+        }
     }
 
     #[test]
@@ -92,8 +159,16 @@ mod tests {
     -> AddOliveOil";
 
         let recipes = PizzaParser::parse(input).unwrap();
-        assert_eq!(recipes[0].name, "Custom");
+        assert_eq!(recipes.len(), 1);
+
+        let recipe = &recipes[0];
+        assert_eq!(recipe.name, "Custom");
+        assert!(matches!(recipe.steps[2], Steps::Multiple(_)));
+
+        if let Steps::Single(Step::Bake { duration }) = &recipe.steps[3] {
+            assert_eq!(*duration, 6);
+        } else {
+            panic!("Expected Steps::Single(Step::Bake) at index 3");
+        }
     }
 }
-
-fn main() {}
