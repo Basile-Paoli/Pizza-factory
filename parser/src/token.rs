@@ -56,7 +56,7 @@ impl<'a> Tokenizer<'a> {
         if ch.is_ascii_alphabetic(){
 
             let mut end = self.pos;
-            while end < self.input.len() && ( (input_byte[end] as char).is_ascii_alphabetic() || (input_byte[end] as char) == '_' ) {
+            while end < self.input.len() && ( (input_byte[end] as char).is_ascii_alphabetic() || (input_byte[end] as char).is_ascii_digit() || (input_byte[end] as char) == '_' ) {
                 end +=1;
             }
 

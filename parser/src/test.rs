@@ -11,7 +11,7 @@ mod tests {
     -> AddCheese(amount=2)
     -> Bake(duration=6)
     -> AddOliveOil
-    FunghiTwo =
+    Funghi2 =
     MakeDough
     -> AddBase(base_type=tomato)
     -> AddMushrooms(amount=3)
@@ -29,7 +29,7 @@ mod tests {
 
         let recipe = &recipes[1];
         recipe.print_recipe();
-        assert_eq!(recipe.name, "FunghiTwo");
+        assert_eq!(recipe.name, "Funghi2");
         assert_eq!(recipe.steps.len(), 6);
     }
 
