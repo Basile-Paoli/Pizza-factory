@@ -10,11 +10,9 @@ impl PizzaParser {
     }
 
     pub fn parse(input: &str) -> Result<Vec<Recipe>, String> {
-        // 1. Tokenize
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.parse();
 
-        // 2. Parse
         let mut parser = Parser::new(tokens);
         parser.parse_recipe()
     }
@@ -65,7 +63,7 @@ impl Recipe {
             Step::AddGarlic { cloves, repeat } => println!("AddGarlic(cloves: {cloves})^{repeat:?}"),
             Step::AddOregano { amount, repeat } => println!("AddOregano(amount: {amount})^{repeat:?}"),
             Step::AddBasil { leaves, repeat } => println!("AddBasil(leaves: {leaves})^{repeat:?}"),
-            Step::AddOliveOil => println!("🛢️ AddOliveOil"),
+            Step::AddOliveOil => println!("AddOliveOil"),
             _ => {println!("Unknow printing step")}
         }
     }

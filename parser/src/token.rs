@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    String(String),      // Pizza Name
+    String(String),
     Equals,
     Arrow,             // ->
     LParen, RParen,
@@ -8,7 +8,6 @@ pub enum Token {
     Comma,
     Caret,             // ^
     Number(u32),
-    Newline,
 }
 
 pub struct Tokenizer<'a> {
@@ -98,7 +97,6 @@ impl<'a> Tokenizer<'a> {
                 Token::Comma => println!("  Comma ,"),
                 Token::Caret => println!("  Caret ^"),
                 Token::Number(num) => println!("  Number: {}", num),
-                Token::Newline => println!("  Newline"),
                 _ => {}
             }
         }

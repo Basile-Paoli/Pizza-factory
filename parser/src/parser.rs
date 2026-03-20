@@ -80,7 +80,7 @@ impl Parser {
         step_param_value: Option<ParamValue>,
         carret_time_param: u32
     ) -> Result<Step, String> {
-        return match (step_name.as_str(), step_param_name.as_str(), &step_param_value) {
+        match (step_name.as_str(), step_param_name.as_str(), &step_param_value) {
             ("AddBase", "base_type", &Some(ParamValue::String(ref s))) => {
                 let base_type = match s.as_str() {
                     "tomato" | "Tomato" => BaseType::Tomato,
@@ -177,7 +177,6 @@ impl Parser {
 
             if self.expect_next_token(Token::Caret).is_ok() {
                 let _caret_value = self.expect_next_number()?;
-                //step.repeat = caret_value
             }
 
         }

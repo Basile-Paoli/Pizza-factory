@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{PizzaParser, Recipe, Step, Steps};
+    use crate::{PizzaParser, Step, Steps};
 
     #[test]
     fn test_funghi() {
