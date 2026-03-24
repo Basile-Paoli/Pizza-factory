@@ -1,7 +1,7 @@
 use crate::gossip::version::Version;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{self, SystemTime, UNIX_EPOCH};
 
 //TODO: share with other modules
 //TODO: use real types instead of strings
@@ -12,6 +12,7 @@ pub struct LocalSkills {
 }
 
 pub(super) type SharedGossipState = Arc<RwLock<GossipState>>;
+
 pub(super) struct GossipState {
     pub(super) local_address: SocketAddr,
     pub(super) peers: Vec<Peer>,
@@ -34,6 +35,7 @@ impl GossipState {
             local_address,
         }
     }
+
     pub(super) fn update_version(&mut self) {
         self.version.counter += 1;
     }
@@ -52,6 +54,35 @@ impl GossipState {
 
     pub(super) fn get_known_peer_mut(&mut self, peer_addr: SocketAddr) -> Option<&mut KnownPeer> {
         self.known_peers.iter_mut().find(|p| p.address == peer_addr)
+    }
+
+    pub(super) fn remove_peer(&mut self, peer_addr: SocketAddr) {
+        eprintln!("Removing peer: {peer_addr}");
+        self.known_peers.retain(|p| p.address != peer_addr);
+        self.peers.retain(|p| p.address != peer_addr);
+    }
+
+    /// Returns addresses of known peers whose version differs from ours (i.e. they need an Announce).
+    pub(super) fn get_peers_to_update(&self) -> impl Iterator<Item = SocketAddr> + '_ {
+        self.known_peers.iter().filter_map(|p| {
+            if p.known_own_version != Some(self.version) {
+                Some(p.address)
+            } else {
+                None
+            }
+        })
+    }
+    pub(super) fn add_known_peer(&mut self, peer_addr: SocketAddr) {
+        if self.get_known_peer(peer_addr).is_none() {
+            self.known_peers.push(KnownPeer {
+                address: peer_addr,
+                known_own_version: None,
+                last_seen: time::SystemTime::now()
+                    .duration_since(time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            });
+        }
     }
 }
 
@@ -74,10 +105,3 @@ pub(super) struct Peer {
 //Temp types
 type Capability = String;
 type Recipe = String;
-
-pub(super) fn remove_peer(state: &SharedGossipState, peer_addr: SocketAddr) {
-    eprintln!("Removing peer: {peer_addr}");
-    let mut state = state.write().expect("poisoned lock");
-    state.known_peers.retain(|p| p.address != peer_addr);
-    state.peers.retain(|p| p.address != peer_addr);
-}
