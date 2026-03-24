@@ -7,12 +7,10 @@ Chaque noeud possède une liste des autres noeuds présents sur le réseau avec 
 Chaque noeud garde une trace de sa propre version, et de la dernière version connue des autres noeuds.
 Chaque noeud garde une trace de la date du dernier message reçu de la part de chaque pair.
 
-Lorsqu'un noeud reçoit une nouvelle information, il augmente sa version, puis envoie une message de gossip "Announce" aux autres noeuds qui ont une version plus basse (selon son gossip rate).
-Chaque message "Announce" est suivi d'un message "Announce" dans le sens inverse avec l'information du noeud destinataire mise à jour.
+Lorsqu'un noeud reçoit une nouvelle information, si son propre état change, il incrémente son numéro de version et envoie un message "Announce" à tous ses pairs avec sa nouvelle version et les informations mises à jour.
 
 Chaque noeud échange des pings à intervalle régulier avec chacun de ses pairs.
 Si le ping n'atteint pas son destinataire pendant un certain temps (10s par défaut), le pair est oublié.
-Le ping contient la version du noeud, ce qui permet de savoir si un voisin a une version plus basse (i.e. il n'a pas reçu un message de gossip pour des raisons d'erreur réseau ou autre)
 
 ### "Announce"
 
@@ -46,7 +44,7 @@ Le ping contient la version du noeud, ce qui permet de savoir si un voisin a une
 version:
 
 - "counter": Incrémenté à chaque update des informations
-- "generation" : Timestamp de la version actuelle
+- "generation" : Timestamp de la création du noeud
 
 ### "Ping"
 
@@ -67,6 +65,7 @@ version:
   }
 }
 ```
+Dans un ping, la version est celle du noeud qui reçoit le ping, telle que connue par le noeud qui envoie le ping.
 
 "last_seen.value":
 
@@ -92,6 +91,8 @@ version:
   }
 }
 ```
+
+Dans un pong, la version est celle du noeud qui envoie le pong.
 
 
 ## TCP (Protocole de production)

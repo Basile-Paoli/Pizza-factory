@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "client",
+    "shared",
+    "agent",
+    "bin"
+]
