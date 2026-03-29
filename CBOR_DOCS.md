@@ -63,6 +63,115 @@ où `<valeur>` depend du type (voir doc de chaque struct).
 - `TAG_SOCKET_ADDR`: Tag CBOR pour une adresse reseau (`ip:port`) encodee en UTF-8.
 - `TAG_TIMESTAMP`: Tag CBOR pour un timestamp micro-secondes (map avec cles `1` et `-6`).
 
+### Support global serde (implementation actuelle)
+
+Les types suivants implementent `serde::Serialize` et `serde::Deserialize` globalement :
+
+- `TaggedUuid`
+- `TaggedSocketAddr`
+- `TaggedTimestamp`
+
+Le branchement repose sur le mapper CBOR existant (pas de duplication de logique) :
+
+- `Serialize` -> `encode_uuid` / `encode_socket_addr` / `encode_timestamp`
+- `Deserialize` -> `decode_uuid` / `decode_socket_addr` / `decode_timestamp`
+
+Consequence: une struct derivee `#[derive(Serialize, Deserialize)]` contenant ces types
+ est automatiquement encodee/decodee avec les bons tags CBOR, sans annotation par champ.
+
+#### Exemple struct serde
+
+```rust,ignore
+use serde::{Deserialize, Serialize};
+use shared::cbor::types::{TaggedSocketAddr, TaggedTimestamp, TaggedUuid};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct TaggedEnvelope {
+    id: TaggedUuid,
+    addr: TaggedSocketAddr,
+    ts: TaggedTimestamp,
+}
+```
+
+#### Exemple round-trip serde CBOR
+
+```rust,ignore
+use serde::{Deserialize, Serialize};
+use shared::cbor::types::{TaggedSocketAddr, TaggedTimestamp, TaggedUuid};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct TaggedEnvelope {
+    id: TaggedUuid,
+    addr: TaggedSocketAddr,
+    ts: TaggedTimestamp,
+}
+
+let original = TaggedEnvelope {
+    id: TaggedUuid::new(uuid::Uuid::parse_str("299defcb-c217-40e7-9030-af8debf647c6").unwrap()),
+    addr: TaggedSocketAddr::new("127.0.0.1:8001".parse().unwrap()),
+    ts: TaggedTimestamp::new(1769778234, 895985),
+};
+
+let mut bytes = Vec::new();
+ciborium::into_writer(&original, &mut bytes).unwrap();
+let decoded: TaggedEnvelope = ciborium::from_reader(bytes.as_slice()).unwrap();
+
+assert_eq!(original, decoded);
+```
+
+#### Compatibilite avec l'existant
+
+La couche serde est compatible avec l'API bas niveau actuelle :
+
+- `encode_*` / `to_bytes`
+- `from_bytes` / `decode_*`
+
+Les tests de `shared/src/cbor/encode.rs` couvrent :
+
+- round-trip serde sur struct complete
+- round-trip serde sur struct mixte (types tagues + champs classiques)
+- verification que les champs restent decodeables via `decode_*` (mapping de tags conserve)
+
+#### Cas struct mixte (tags CBOR + champs classiques)
+
+Une struct peut melanger des champs CBOR tagues et des champs standards (`String`, `u32`, `bool`, etc.).
+La serialisation/deserialisation serde reste automatique pour l'ensemble de la struct :
+
+- les champs tagues gardent leurs tags CBOR (`37`, `260`, `1001`)
+- les autres champs utilisent l'encodage CBOR serde standard
+
+```rust,ignore
+use serde::{Deserialize, Serialize};
+use shared::cbor::types::{TaggedSocketAddr, TaggedTimestamp, TaggedUuid};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct MixedEnvelope {
+    id: TaggedUuid,
+    addr: TaggedSocketAddr,
+    ts: TaggedTimestamp,
+    label: String,
+    retry_count: u32,
+    ok: bool,
+}
+
+let original = MixedEnvelope {
+    id: TaggedUuid::new(uuid::Uuid::parse_str("299defcb-c217-40e7-9030-af8debf647c6").unwrap()),
+    addr: TaggedSocketAddr::new("127.0.0.1:8001".parse().unwrap()),
+    ts: TaggedTimestamp::new(1769778234, 895985),
+    label: "order-ready".to_string(),
+    retry_count: 3,
+    ok: true,
+};
+
+let mut bytes = Vec::new();
+ciborium::into_writer(&original, &mut bytes).unwrap();
+let decoded: MixedEnvelope = ciborium::from_reader(bytes.as_slice()).unwrap();
+
+assert_eq!(original, decoded);
+```
+
+Test associe : `shared/src/cbor/encode.rs` -> `serde_roundtrip_mixed_struct_with_tagged_and_regular_fields`.
+
 ### `TaggedUuid` (tag 37)
 
 UUID RFC 4122 transporte avec le tag CBOR `37`.

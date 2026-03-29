@@ -1,4 +1,6 @@
 use std::net::SocketAddr;
+use ciborium::Value;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 pub const TAG_UUID: u64 = 37;
@@ -34,6 +36,26 @@ impl From<TaggedUuid> for Uuid {
     }
 }
 
+impl Serialize for TaggedUuid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = crate::cbor::encode::encode_uuid(self);
+        value.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TaggedUuid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        crate::cbor::decode::decode_uuid(value).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TaggedSocketAddr(pub SocketAddr);
 
@@ -63,6 +85,26 @@ impl From<TaggedSocketAddr> for SocketAddr {
     }
 }
 
+impl Serialize for TaggedSocketAddr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = crate::cbor::encode::encode_socket_addr(self);
+        value.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TaggedSocketAddr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        crate::cbor::decode::decode_socket_addr(value).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaggedTimestamp {
     pub seconds: i64,
@@ -83,5 +125,25 @@ impl TaggedTimestamp {
             seconds: us / 1_000_000,
             microseconds: us % 1_000_000,
         }
+    }
+}
+
+impl Serialize for TaggedTimestamp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = crate::cbor::encode::encode_timestamp(self);
+        value.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TaggedTimestamp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        crate::cbor::decode::decode_timestamp(value).map_err(serde::de::Error::custom)
     }
 }
