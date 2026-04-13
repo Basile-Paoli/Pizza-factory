@@ -1,7 +1,7 @@
-use crate::cbor::{TaggedAddr, TaggedUuid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::SystemTime;
+use crate::{TaggedSocketAddr, TaggedUuid};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Action {
@@ -13,7 +13,7 @@ pub struct Action {
 pub struct Payload {
     pub order_id: TaggedUuid,
     pub order_timestamp: u64,
-    pub delivery_host: TaggedAddr,
+    pub delivery_host: TaggedSocketAddr,
     pub action_index: usize,
     pub action_sequence: Vec<Action>,
     pub content: String,
@@ -108,7 +108,7 @@ fn json_string(s: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Update {
     Action { action: Action, timestamp: u64 },
-    Forward { to: TaggedAddr, timestamp: u64 },
+    Forward { to: TaggedSocketAddr, timestamp: u64 },
     Deliver { timestamp: u64 },
 }
 
