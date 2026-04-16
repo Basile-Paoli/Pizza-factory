@@ -3,12 +3,14 @@ use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::time::{self, SystemTime, UNIX_EPOCH};
 
-//TODO: share with other modules
 //TODO: use real types instead of strings
+type Capability = String;
+type Recipe = String;
+
 #[derive(Clone)]
 pub struct LocalSkills {
-    pub capabilities: Vec<Capability>,
-    pub recipes: Vec<Recipe>,
+    pub capabilities: Vec<String>,
+    pub recipes: Vec<String>,
 }
 
 pub(super) type SharedGossipState = Arc<RwLock<GossipState>>;
@@ -72,6 +74,7 @@ impl GossipState {
             }
         })
     }
+
     pub(super) fn add_known_peer(&mut self, peer_addr: SocketAddr) {
         if self.get_known_peer(peer_addr).is_none() {
             self.known_peers.push(KnownPeer {
@@ -83,6 +86,27 @@ impl GossipState {
                     .as_millis(),
             });
         }
+    }
+
+    pub(super) fn find_peer_for_action(&self, action: &str) -> Option<SocketAddr> {
+        self.peers
+            .iter()
+            .find(|p| p.capabilities.iter().any(|c| c == action))
+            .map(|p| p.address)
+    }
+
+    pub(super) fn get_all_peer_capabilities(&self) -> std::collections::HashSet<String> {
+        self.peers
+            .iter()
+            .flat_map(|p| p.capabilities.iter().cloned())
+            .collect()
+    }
+
+    pub(super) fn get_all_peer_recipe_names(&self) -> Vec<String> {
+        self.peers
+            .iter()
+            .flat_map(|p| p.recipes.iter().cloned())
+            .collect()
     }
 }
 
@@ -101,7 +125,3 @@ pub(super) struct Peer {
     pub(super) version: Version,
     pub(super) last_seen: u128,
 }
-
-//Temp types
-type Capability = String;
-type Recipe = String;
