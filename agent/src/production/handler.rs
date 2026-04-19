@@ -91,7 +91,9 @@ fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: Stri
     let recipe_dsl = match ctx.recipe_store.get(&recipe_name) {
         Some(dsl) => dsl.clone(),
         None => {
-            eprintln!("[agent] Recette inconnue: '{}'", recipe_name);
+            let reason = format!("Recette inconnue: '{}'", recipe_name);
+            eprintln!("[agent] {}", reason);
+            decline_order(&mut stream, reason);
             return;
         }
     };
@@ -100,10 +102,31 @@ fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: Stri
     let action_sequence = match PizzaParser::parse_single(&recipe_dsl) {
         Ok(recipe) => recipe_to_action_sequence(&recipe.steps),
         Err(e) => {
-            eprintln!("[agent] Erreur de parsing de '{}': {}", recipe_name, e);
+            let reason = format!("Erreur de parsing de '{}': {}", recipe_name, e);
+            eprintln!("[agent] {}", reason);
+            decline_order(&mut stream, reason);
             return;
         }
     };
+
+    // 2bis. Vérifier que toutes les actions sont réalisables par le cluster
+    let mut all_caps: HashSet<String> = ctx.capabilities.clone();
+    all_caps.extend(ctx.gossip.get_all_peer_capabilities());
+    let missing: Vec<String> = action_sequence
+        .iter()
+        .map(|a| a.name.clone())
+        .filter(|n| !all_caps.contains(n))
+        .collect();
+    if !missing.is_empty() {
+        let reason = format!(
+            "Actions non réalisables pour '{}': {}",
+            recipe_name,
+            missing.join(", ")
+        );
+        eprintln!("[agent] {}", reason);
+        decline_order(&mut stream, reason);
+        return;
+    }
 
     // 3. Créer le payload initial
     let order_id = Uuid::new_v4();
@@ -330,6 +353,14 @@ fn handle_get_recipe(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name:
 }
 
 // ─── Fonctions d'envoi (nouvelles connexions TCP) ─────────────────────────
+
+/// Envoie `OrderDeclined` au client sur la connexion en cours.
+fn decline_order(stream: &mut TcpStream, message: String) {
+    let msg = TcpMessage::OrderDeclined { message };
+    if let Err(e) = write_message(stream, &msg) {
+        eprintln!("[agent] Erreur envoi order_declined: {}", e);
+    }
+}
 
 /// Ouvre une nouvelle connexion TCP et envoie un `process_payload`.
 ///

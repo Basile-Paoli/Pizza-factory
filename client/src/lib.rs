@@ -15,6 +15,9 @@ pub enum ClientError {
     Framing(FramingError),
     /// Le serveur a répondu avec un message inattendu
     Protocol(String),
+    /// La commande a été refusée par l'agent (recette inconnue, invalide,
+    /// ou action non réalisable par le cluster).
+    Declined(String),
 }
 
 impl std::fmt::Display for ClientError {
@@ -23,6 +26,7 @@ impl std::fmt::Display for ClientError {
             ClientError::Io(e) => write!(f, "Erreur réseau: {}", e),
             ClientError::Framing(e) => write!(f, "Erreur de protocole: {}", e),
             ClientError::Protocol(s) => write!(f, "Erreur applicative: {}", s),
+            ClientError::Declined(s) => write!(f, "Commande refusée: {}", s),
         }
     }
 }
@@ -65,10 +69,13 @@ pub fn order_pizza(agent_addr: SocketAddr, recipe_name: &str) -> Result<String, 
         recipe_name: recipe_name.to_string(),
     })?;
 
-    // Attendre l'accusé de réception
+    // Attendre l'accusé de réception (ou un refus immédiat)
     match read_message::<TcpMessage>(&mut stream)? {
         TcpMessage::OrderReceipt { order_id } => {
             eprintln!("[client] Commande acceptée, UUID: {:?}", order_id);
+        }
+        TcpMessage::OrderDeclined { message } => {
+            return Err(ClientError::Declined(message));
         }
         other => {
             return Err(ClientError::Protocol(format!(

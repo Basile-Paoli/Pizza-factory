@@ -1,5 +1,5 @@
 use crate::gossip::heartbeat::{ping_loop, send_pong};
-use crate::gossip::message::{AnnounceMessage, GossipError, Message};
+use crate::gossip::message::{AnnounceMessage, GossipError, Message, PingMessage, PongMessage};
 use crate::gossip::state::{KnownPeer, LocalSkills, Peer, SharedGossipState};
 use crate::gossip::sync::send_announce_message;
 use crate::gossip::version::Version;
@@ -46,51 +46,67 @@ fn handle_message(
             handle_announce(announce, src, shared_gossip_state, local_skills, socket)
         }
         Message::Ping(ping) => {
-            let peer = match shared_gossip_state
-                .read()
-                .expect("poisoned lock")
-                .get_peer(src)
-            {
-                Some(p) => p.clone(),
-                None => {
-                    eprintln!("Received Ping from unknown peer {src}, ignoring");
-                    return Ok(());
-                }
-            };
-
-            update_peer_known_own_version(src, ping.version, shared_gossip_state);
-            update_last_seen(src, shared_gossip_state);
-
-            let socket_clone = socket.try_clone()?;
-            let state_clone = shared_gossip_state.clone();
-            thread::spawn(move || {
-                send_pong(&peer, &state_clone, &socket_clone).unwrap_or_else(|e| {
-                    eprintln!("Error sending pong to {}: {e:?}", peer.address);
-                });
-            });
-            Ok(())
+            handle_ping(ping, src, socket, shared_gossip_state)
         }
         Message::Pong(pong) => {
-            let version_changed = shared_gossip_state
-                .read()
-                .expect("poisoned lock")
-                .get_peer(src)
-                .map_or(false, |p| p.version != pong.version);
-
-            update_last_seen(src, shared_gossip_state);
-
-            if version_changed {
-                let socket_clone = socket.try_clone()?;
-                let state_clone = shared_gossip_state.clone();
-                let skills = Arc::clone(local_skills);
-                thread::spawn(move || {
-                    send_announce_message(&socket_clone, src, &state_clone, &skills)
-                        .unwrap_or_else(|e| eprintln!("Failed to send announce to {src}: {e:?}"));
-                });
-            }
-            Ok(())
+            handle_pong(pong, src, shared_gossip_state, local_skills, socket)?
         }
     }
+}
+
+fn handle_pong(pong: PongMessage, src: SocketAddr, shared_gossip_state: &SharedGossipState, local_skills: &Arc<LocalSkills>, socket: &UdpSocket) -> Result<Result<(), GossipError>, GossipError> {
+    let version_changed = shared_gossip_state
+        .read()
+        .expect("poisoned lock")
+        .get_peer(src)
+        .map_or(false, |p| p.version != pong.version);
+
+    update_last_seen(src, shared_gossip_state);
+
+    if version_changed {
+        let socket_clone = socket.try_clone()?;
+        let state_clone = shared_gossip_state.clone();
+        let skills = Arc::clone(local_skills);
+        thread::spawn(move || {
+            send_announce_message(&socket_clone, src, &state_clone, &skills)
+                .unwrap_or_else(|e| eprintln!("Failed to send announce to {src}: {e:?}"));
+        });
+    }
+    Ok(Ok(()))
+}
+
+fn handle_ping(
+    ping: PingMessage,
+    src: SocketAddr,
+    socket: &UdpSocket,
+    shared_gossip_state: &SharedGossipState
+) -> Result<(), GossipError> {
+    let peer = {
+        let mut state = shared_gossip_state.write().expect("poisoned lock");
+        match state.get_peer(src) {
+            Some(peer) => peer.clone(),
+            None => {
+                state.known_peers.push(KnownPeer {
+                    address: src,
+                    known_own_version: None,
+                    last_seen: 0,
+                });
+                return Ok(());
+            }
+        }
+    };
+
+    update_peer_known_own_version(src, ping.version, shared_gossip_state);
+    update_last_seen(src, shared_gossip_state);
+
+    let socket_clone = socket.try_clone()?;
+    let state_clone = shared_gossip_state.clone();
+    thread::spawn(move || {
+        send_pong(&peer, &state_clone, &socket_clone).unwrap_or_else(|e| {
+            eprintln!("Error sending pong to {}: {e:?}", peer.address);
+        });
+    });
+    Ok(())
 }
 
 fn handle_announce(
