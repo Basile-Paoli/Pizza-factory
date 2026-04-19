@@ -209,6 +209,7 @@ fn run_client(agent_addr: SocketAddr, action: ClientAction) {
             match client::order_pizza(agent_addr, &recipe) {
                 Ok(result) => {
                     println!("\nPizza prête !");
+                    println!("Détails de la préparation :\n{}", result);
                 }
                 Err(e) => {
                     eprintln!("Erreur : {}", e);
