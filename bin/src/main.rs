@@ -15,11 +15,14 @@
 //! pizza-factory client --agent 127.0.0.1:8001 get-recipe Margherita
 //! ```
 
-use agent::gossip::{LocalSkills, start_gossip};
+use agent::gossip::{Command as GossipCommand, LocalSkills, start_gossip};
 use agent::production::{AgentContext, start_production_server};
 use clap::{Parser, Subcommand};
 use std::collections::{HashMap, HashSet};
+use std::io::BufRead;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
 // ─── CLI ──────────────────────────────────────────────────────────────────
 
@@ -117,17 +120,85 @@ fn run_agent(
         capabilities: caps,
         recipes: recipe_names,
     };
-    let (_gossip_cmd, gossip_handle) =
+    let (gossip_cmd, gossip_handle) =
         start_gossip(addr, local_skills, bootstrap).expect("Impossible de démarrer le gossip UDP");
 
     let ctx = AgentContext::new(addr, capabilities_set, recipe_store, gossip_handle);
 
-    start_production_server(ctx).expect("Impossible de démarrer le serveur TCP");
+    start_production_server(ctx.clone()).expect("Impossible de démarrer le serveur TCP");
 
-    println!("Agent démarré. Appuyez sur Ctrl+C pour arrêter.");
+    println!("Agent démarré. Tapez 'help' pour les commandes, Ctrl+C pour arrêter.");
 
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(60));
+    run_stdin_console(ctx, gossip_cmd);
+}
+
+/// Lit des commandes sur stdin et les applique à l'agent en cours d'exécution.
+///
+/// Commandes :
+/// - `add-peer <ip:port>`        : ajoute un pair au gossip
+/// - `add-capability <nom>`      : déclare une nouvelle capability localement
+/// - `help`                      : affiche l'aide
+fn run_stdin_console(ctx: Arc<AgentContext>, gossip_cmd: Sender<GossipCommand>) {
+    let stdin = std::io::stdin();
+    for line in stdin.lock().lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("[agent] Erreur lecture stdin: {}", e);
+                return;
+            }
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let mut parts = trimmed.splitn(2, char::is_whitespace);
+        let cmd = parts.next().unwrap_or("");
+        let arg = parts.next().unwrap_or("").trim();
+
+        match cmd {
+            "add-peer" => match arg.parse::<SocketAddr>() {
+                Ok(socket_addr) => {
+                    if let Err(e) = gossip_cmd.send(GossipCommand::AddPeer { socket_addr }) {
+                        eprintln!("[agent] Impossible d'envoyer AddPeer: {}", e);
+                    } else {
+                        println!("[agent] Pair ajouté: {}", socket_addr);
+                    }
+                }
+                Err(e) => eprintln!("[agent] Adresse invalide '{}': {}", arg, e),
+            },
+            "add-capability" => {
+                if arg.is_empty() {
+                    eprintln!("[agent] Usage: add-capability <nom>");
+                    continue;
+                }
+                let capability = arg.to_string();
+                let inserted = ctx
+                    .capabilities
+                    .write()
+                    .expect("lock capabilities empoisonné")
+                    .insert(capability.clone());
+                if !inserted {
+                    println!("[agent] Capability '{}' déjà déclarée", capability);
+                    continue;
+                }
+                if let Err(e) = gossip_cmd.send(GossipCommand::AddCapability {
+                    capability: capability.clone(),
+                }) {
+                    eprintln!("[agent] Impossible d'envoyer AddCapability: {}", e);
+                } else {
+                    println!("[agent] Capability ajoutée: {}", capability);
+                }
+            }
+            "help" => {
+                println!("Commandes disponibles:");
+                println!("  add-peer <ip:port>");
+                println!("  add-capability <nom>");
+                println!("  help");
+            }
+            other => eprintln!("[agent] Commande inconnue: '{}'. Tapez 'help'.", other),
+        }
     }
 }
 

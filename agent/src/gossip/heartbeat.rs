@@ -81,6 +81,7 @@ pub(super) fn send_pong(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gossip::LocalSkills;
     use crate::gossip::state::{GossipState, SharedGossipState};
     use crate::gossip::version::Version;
     use std::net::UdpSocket;
@@ -106,7 +107,13 @@ mod tests {
     }
 
     fn make_state(port: u16) -> SharedGossipState {
-        Arc::new(RwLock::new(GossipState::new(addr(port))))
+        Arc::new(RwLock::new(GossipState::new(
+            addr(port),
+            LocalSkills {
+                capabilities: vec![],
+                recipes: vec![],
+            },
+        )))
     }
 
     fn push_peer(state: &SharedGossipState, peer_addr: SocketAddr, last_seen: u128) {

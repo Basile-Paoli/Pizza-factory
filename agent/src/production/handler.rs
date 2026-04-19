@@ -11,7 +11,7 @@ use shared::message::{
 };
 use std::collections::{HashMap, HashSet};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::Sender;
 use uuid::Uuid;
 
@@ -27,7 +27,7 @@ pub struct AgentContext {
     /// Adresse TCP de cet agent (ex: "127.0.0.1:8001")
     pub addr: SocketAddr,
     /// Noms des actions que cet agent sait exécuter (ex: {"MakeDough", "Bake"})
-    pub capabilities: HashSet<String>,
+    pub capabilities: RwLock<HashSet<String>>,
     /// Recettes connues localement : nom → texte DSL
     pub recipe_store: Arc<HashMap<String, String>>,
     /// Interface vers l'état gossip pour trouver des pairs
@@ -48,7 +48,7 @@ impl AgentContext {
     ) -> Arc<Self> {
         Arc::new(Self {
             addr,
-            capabilities,
+            capabilities: RwLock::new(capabilities),
             recipe_store: Arc::new(recipe_store),
             gossip,
             pending_orders: Arc::new(Mutex::new(HashMap::new())),
@@ -110,7 +110,11 @@ fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: Stri
     };
 
     // 2bis. Vérifier que toutes les actions sont réalisables par le cluster
-    let mut all_caps: HashSet<String> = ctx.capabilities.clone();
+    let mut all_caps: HashSet<String> = ctx
+        .capabilities
+        .read()
+        .expect("lock capabilities empoisonné")
+        .clone();
     all_caps.extend(ctx.gossip.get_all_peer_capabilities());
     let missing: Vec<String> = action_sequence
         .iter()
@@ -214,7 +218,12 @@ fn handle_process_payload(ctx: Arc<AgentContext>, mut payload: Payload) {
         payload.action_sequence.len()
     );
 
-    if ctx.capabilities.contains(&action.name) {
+    let can_handle_locally = ctx
+        .capabilities
+        .read()
+        .expect("lock capabilities empoisonné")
+        .contains(&action.name);
+    if can_handle_locally {
         // L'agent sait faire cette action
         match execute_action(&action) {
             Ok(contribution) => {
@@ -305,7 +314,11 @@ fn handle_deliver(ctx: Arc<AgentContext>, mut payload: Payload, error: Option<St
 /// actions que ni cet agent ni aucun pair ne sait exécuter.
 fn handle_list_recipes(mut stream: TcpStream, ctx: Arc<AgentContext>) {
     // Combiner les capabilities locales et celles des pairs
-    let mut all_caps: HashSet<String> = ctx.capabilities.clone();
+    let mut all_caps: HashSet<String> = ctx
+        .capabilities
+        .read()
+        .expect("lock capabilities empoisonné")
+        .clone();
     all_caps.extend(ctx.gossip.get_all_peer_capabilities());
 
     let mut recipes = HashMap::new();

@@ -1,5 +1,6 @@
 use crate::gossip::version::Version;
 use std::net::SocketAddr;
+use std::panic::Location;
 use std::sync::{Arc, RwLock};
 use std::time::{self, SystemTime, UNIX_EPOCH};
 
@@ -20,10 +21,11 @@ pub(super) struct GossipState {
     pub(super) peers: Vec<Peer>,
     pub(super) known_peers: Vec<KnownPeer>,
     pub(super) version: Version,
+    pub(super) local_skills: LocalSkills,
 }
 
 impl GossipState {
-    pub(super) fn new(local_address: SocketAddr) -> Self {
+    pub(super) fn new(local_address: SocketAddr, local_skills: LocalSkills) -> Self {
         Self {
             known_peers: Vec::new(),
             peers: Vec::new(),
@@ -35,6 +37,7 @@ impl GossipState {
                     .as_secs(),
             },
             local_address,
+            local_skills,
         }
     }
 

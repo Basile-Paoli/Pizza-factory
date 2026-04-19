@@ -6,22 +6,16 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-pub(super) fn start_gossip_loop(
-    state: SharedGossipState,
-    socket: UdpSocket,
-    local_skills: Arc<LocalSkills>,
-) {
-    thread::spawn(move || loop {
-        perform_gossip_round(state.clone(), &socket, local_skills.clone());
-        thread::sleep(Duration::from_secs(1));
+pub(super) fn start_gossip_loop(state: SharedGossipState, socket: UdpSocket) {
+    thread::spawn(move || {
+        loop {
+            perform_gossip_round(state.clone(), &socket);
+            thread::sleep(Duration::from_secs(1));
+        }
     });
 }
 
-pub(super) fn perform_gossip_round(
-    state: SharedGossipState,
-    socket: &UdpSocket,
-    local_skills: Arc<LocalSkills>,
-) {
+pub(super) fn perform_gossip_round(state: SharedGossipState, socket: &UdpSocket) {
     let peers_to_update = {
         let state = state.read().expect("poisoned lock");
         state.get_peers_to_update().collect::<Vec<_>>()
@@ -30,8 +24,7 @@ pub(super) fn perform_gossip_round(
     let handles = peers_to_update.iter().map(|&peer| {
         let socket_clone = socket.try_clone().expect("Failed to clone socket");
         let state = state.clone();
-        let local_skills = local_skills.clone();
-        thread::spawn(move || send_announce_message(&socket_clone, peer, &state, &local_skills))
+        thread::spawn(move || send_announce_message(&socket_clone, peer, &state))
     });
 
     for handle in handles {
@@ -45,7 +38,6 @@ pub(super) fn send_announce_message(
     socket: &UdpSocket,
     peer: SocketAddr,
     state: &SharedGossipState,
-    local_skills: &LocalSkills,
 ) -> Result<(), GossipError> {
     let announce_message = {
         let state = state.read().expect("poisoned lock");
@@ -53,8 +45,8 @@ pub(super) fn send_announce_message(
             // Use the configured local address, not socket.local_addr(), which may return
             // 0.0.0.0 if the socket was bound to the wildcard address.
             node_addr: TaggedSocketAddr::new(state.local_address),
-            capabilities: local_skills.capabilities.clone(),
-            recipes: local_skills.recipes.clone(),
+            capabilities: state.local_skills.capabilities.clone(),
+            recipes: state.local_skills.recipes.clone(),
             peers: state
                 .known_peers
                 .iter()
@@ -76,18 +68,20 @@ mod tests {
     use std::sync::{Arc, RwLock};
 
     fn make_state(local_addr: SocketAddr) -> SharedGossipState {
-        Arc::new(RwLock::new(GossipState::new(local_addr)))
+        Arc::new(RwLock::new(GossipState::new(local_addr, skills())))
     }
 
-    fn skills() -> Arc<LocalSkills> {
-        Arc::new(LocalSkills {
+    fn skills() -> LocalSkills {
+        LocalSkills {
             capabilities: vec!["cap1".into()],
             recipes: vec!["recipe1".into()],
-        })
+        }
     }
 
     fn recv_announce(socket: &UdpSocket) -> AnnounceMessage {
-        socket.set_read_timeout(Some(std::time::Duration::from_secs(1))).unwrap();
+        socket
+            .set_read_timeout(Some(std::time::Duration::from_secs(1)))
+            .unwrap();
         let mut buf = [0u8; 4096];
         let (len, _) = socket.recv_from(&mut buf).unwrap();
         match ciborium::de::from_reader(&buf[..len]).unwrap() {
@@ -114,14 +108,13 @@ mod tests {
         });
     }
 
-
     #[test]
     fn send_announce_carries_skills_and_version() {
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         let receiver = UdpSocket::bind("127.0.0.1:0").unwrap();
         let state = make_state("127.0.0.1:8882".parse().unwrap());
 
-        send_announce_message(&sender, receiver.local_addr().unwrap(), &state, &skills()).unwrap();
+        send_announce_message(&sender, receiver.local_addr().unwrap(), &state).unwrap();
 
         let a = recv_announce(&receiver);
         assert_eq!(a.capabilities, vec!["cap1"]);
@@ -137,7 +130,7 @@ mod tests {
         let state = make_state("127.0.0.1:8883".parse().unwrap());
         state.write().unwrap().add_known_peer(third);
 
-        send_announce_message(&sender, receiver.local_addr().unwrap(), &state, &skills()).unwrap();
+        send_announce_message(&sender, receiver.local_addr().unwrap(), &state).unwrap();
 
         let a = recv_announce(&receiver);
         assert!(a.peers.contains(&TaggedSocketAddr::new(third)));
@@ -150,7 +143,7 @@ mod tests {
         let state = make_state("127.0.0.1:8884".parse().unwrap());
         add_known_peer_needing_update(&state, receiver.local_addr().unwrap());
 
-        perform_gossip_round(state, &sender, skills());
+        perform_gossip_round(state, &sender);
 
         recv_announce(&receiver); // panics on timeout if nothing received
     }
@@ -158,14 +151,19 @@ mod tests {
     #[test]
     fn gossip_round_skips_up_to_date_peer() {
         let receiver = UdpSocket::bind("127.0.0.1:0").unwrap();
-        receiver.set_read_timeout(Some(std::time::Duration::from_millis(150))).unwrap();
+        receiver
+            .set_read_timeout(Some(std::time::Duration::from_millis(150)))
+            .unwrap();
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         let state = make_state("127.0.0.1:8885".parse().unwrap());
         add_known_peer_up_to_date(&state, receiver.local_addr().unwrap());
 
-        perform_gossip_round(state, &sender, skills());
+        perform_gossip_round(state, &sender);
 
         let mut buf = [0u8; 1];
-        assert!(receiver.recv_from(&mut buf).is_err(), "Should not receive any message");
+        assert!(
+            receiver.recv_from(&mut buf).is_err(),
+            "Should not receive any message"
+        );
     }
 }

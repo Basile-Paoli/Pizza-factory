@@ -7,11 +7,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::{thread, time};
 
-pub(super) fn start_listener(
-    socket: UdpSocket,
-    shared_gossip_state: SharedGossipState,
-    local_skills: Arc<LocalSkills>,
-) {
+pub(super) fn start_listener(socket: UdpSocket, shared_gossip_state: SharedGossipState) {
     thread::spawn(move || {
         let mut buf = [0; 1 << 16];
         loop {
@@ -21,10 +17,11 @@ pub(super) fn start_listener(
                     match message {
                         Err(e) => eprintln!("Error deserializing message from {src}: {e}"),
                         Ok(msg) => {
-                            handle_message(msg, src, &shared_gossip_state, &local_skills, &socket)
-                                .unwrap_or_else(|e| {
+                            handle_message(msg, src, &shared_gossip_state, &socket).unwrap_or_else(
+                                |e| {
                                     eprintln!("Error handling message from {src}: {e:?}");
-                                });
+                                },
+                            );
                         }
                     }
                 }
@@ -38,23 +35,21 @@ fn handle_message(
     msg: Message,
     src: SocketAddr,
     shared_gossip_state: &SharedGossipState,
-    local_skills: &Arc<LocalSkills>,
     socket: &UdpSocket,
 ) -> Result<(), GossipError> {
     match msg {
-        Message::Announce(announce) => {
-            handle_announce(announce, src, shared_gossip_state, local_skills, socket)
-        }
-        Message::Ping(ping) => {
-            handle_ping(ping, src, socket, shared_gossip_state)
-        }
-        Message::Pong(pong) => {
-            handle_pong(pong, src, shared_gossip_state, local_skills, socket)?
-        }
+        Message::Announce(announce) => handle_announce(announce, src, shared_gossip_state, socket),
+        Message::Ping(ping) => handle_ping(ping, src, socket, shared_gossip_state),
+        Message::Pong(pong) => handle_pong(pong, src, shared_gossip_state, socket)?,
     }
 }
 
-fn handle_pong(pong: PongMessage, src: SocketAddr, shared_gossip_state: &SharedGossipState, local_skills: &Arc<LocalSkills>, socket: &UdpSocket) -> Result<Result<(), GossipError>, GossipError> {
+fn handle_pong(
+    pong: PongMessage,
+    src: SocketAddr,
+    shared_gossip_state: &SharedGossipState,
+    socket: &UdpSocket,
+) -> Result<Result<(), GossipError>, GossipError> {
     let version_changed = shared_gossip_state
         .read()
         .expect("poisoned lock")
@@ -66,9 +61,8 @@ fn handle_pong(pong: PongMessage, src: SocketAddr, shared_gossip_state: &SharedG
     if version_changed {
         let socket_clone = socket.try_clone()?;
         let state_clone = shared_gossip_state.clone();
-        let skills = Arc::clone(local_skills);
         thread::spawn(move || {
-            send_announce_message(&socket_clone, src, &state_clone, &skills)
+            send_announce_message(&socket_clone, src, &state_clone)
                 .unwrap_or_else(|e| eprintln!("Failed to send announce to {src}: {e:?}"));
         });
     }
@@ -79,7 +73,7 @@ fn handle_ping(
     ping: PingMessage,
     src: SocketAddr,
     socket: &UdpSocket,
-    shared_gossip_state: &SharedGossipState
+    shared_gossip_state: &SharedGossipState,
 ) -> Result<(), GossipError> {
     let peer = {
         let mut state = shared_gossip_state.write().expect("poisoned lock");
@@ -113,7 +107,6 @@ fn handle_announce(
     announce: AnnounceMessage,
     src: SocketAddr,
     shared_gossip_state: &SharedGossipState,
-    local_skills: &Arc<LocalSkills>,
     socket: &UdpSocket,
 ) -> Result<(), GossipError> {
     if announce.node_addr.0 != src {
@@ -143,9 +136,8 @@ fn handle_announce(
         if needs_update {
             let socket_clone = socket.try_clone()?;
             let state_clone = shared_gossip_state.clone();
-            let skills = Arc::clone(local_skills);
             thread::spawn(move || {
-                send_announce_message(&socket_clone, src, &state_clone, &skills)
+                send_announce_message(&socket_clone, src, &state_clone)
                     .unwrap_or_else(|e| eprintln!("Failed to send announce to {src}: {e:?}"));
             });
         }
@@ -311,14 +303,13 @@ mod tests {
     }
 
     fn make_state(local_addr: SocketAddr) -> SharedGossipState {
-        Arc::new(RwLock::new(GossipState::new(local_addr)))
-    }
-
-    fn no_skills() -> Arc<LocalSkills> {
-        Arc::new(LocalSkills {
-            capabilities: vec![],
-            recipes: vec![],
-        })
+        Arc::new(RwLock::new(GossipState::new(
+            local_addr,
+            LocalSkills {
+                capabilities: vec![],
+                recipes: vec![],
+            },
+        )))
     }
 
     fn send_announce(socket: &UdpSocket, dest: SocketAddr, announce: AnnounceMessage) {
@@ -336,13 +327,12 @@ mod tests {
         }
     }
 
-
     #[test]
     fn listener_adds_peer_on_announce() {
         let listener_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
         let listener_addr = listener_sock.local_addr().unwrap();
         let state = make_state(listener_addr);
-        start_listener(listener_sock, state.clone(), no_skills());
+        start_listener(listener_sock, state.clone());
 
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         let sender_addr = sender.local_addr().unwrap();
@@ -370,7 +360,7 @@ mod tests {
         let listener_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
         let listener_addr = listener_sock.local_addr().unwrap();
         let state = make_state(listener_addr);
-        start_listener(listener_sock, state.clone(), no_skills());
+        start_listener(listener_sock, state.clone());
 
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         // node_addr != actual src → should be rejected
@@ -395,7 +385,7 @@ mod tests {
         let listener_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
         let listener_addr = listener_sock.local_addr().unwrap();
         let state = make_state(listener_addr);
-        start_listener(listener_sock, state.clone(), no_skills());
+        start_listener(listener_sock, state.clone());
 
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         let sender_addr = sender.local_addr().unwrap();
@@ -435,7 +425,7 @@ mod tests {
         });
         state.write().unwrap().add_known_peer(sender_addr);
 
-        start_listener(listener_sock, state.clone(), no_skills());
+        start_listener(listener_sock, state.clone());
 
         // Send announce with version 2 and new capabilities.
         send_announce(
