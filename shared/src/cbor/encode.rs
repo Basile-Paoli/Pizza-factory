@@ -8,8 +8,8 @@ use crate::cbor_encode_tagged;
 
 
 pub fn encode_uuid(tagged: &TaggedUuid) -> Value {
-    let bytes = tagged.inner().as_bytes().to_vec();
-    cbor_encode_tagged!(TAG_UUID, Value::Bytes(bytes))
+    let bytes = tagged.inner().to_string();
+    cbor_encode_tagged!(TAG_UUID, Value::Text(bytes))
 }
 
 

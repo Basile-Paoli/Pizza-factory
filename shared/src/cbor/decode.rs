@@ -13,11 +13,10 @@ pub fn decode_uuid(value: Value) -> Result<TaggedUuid, CborError> {
     let inner = cbor_decode_check_tag!(value, TAG_UUID)?;
 
     match inner {
-        Value::Bytes(bytes) => {
-            let arr: [u8; 16] = bytes
-                .try_into()
-                .map_err(|_| CborError::InvalidValue { context: "UUID doit être bstr de 16 octets" })?;
-            Ok(TaggedUuid::new(Uuid::from_bytes(arr)))
+        Value::Text(text) => {
+            Ok(TaggedUuid::new(Uuid::parse_str(&text).map_err(|e| CborError::InvalidValue {
+                context: "UUID : parsing de la string a échoué :",
+            })?))
         }
         _ => Err(CborError::InvalidValue {
             context: "UUID : valeur interne doit être bstr",

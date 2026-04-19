@@ -1,8 +1,13 @@
 use crate::gossip::message::{GossipError, Message, PingMessage, PongMessage, send_message};
 use crate::gossip::state::{Peer, SharedGossipState};
+use shared::TaggedTimestamp;
 use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, SystemTime};
+
+fn millis_to_tagged(ms: u128) -> TaggedTimestamp {
+    TaggedTimestamp::new((ms / 1000) as i64, ((ms % 1000) * 1000) as i64)
+}
 
 const REFRESH_TIMEOUT: Duration = Duration::from_secs(10);
 const REFRESH_DELAY: Duration = Duration::from_secs(1);
@@ -50,7 +55,10 @@ pub(super) fn ping_loop(
         send_message(
             udp_socket,
             address,
-            &Message::Ping(PingMessage { last_seen, version }),
+            &Message::Ping(PingMessage {
+                last_seen: millis_to_tagged(last_seen),
+                version,
+            }),
         )?;
 
         thread::sleep(config.refresh_delay);
@@ -64,7 +72,7 @@ pub(super) fn send_pong(
 ) -> Result<(), GossipError> {
     let version = shared_gossip_state.read().expect("poisoned lock").version;
     let pong_msg = Message::Pong(PongMessage {
-        last_seen: peer.last_seen,
+        last_seen: millis_to_tagged(peer.last_seen),
         version,
     });
     send_message(udp_socket, peer.address, &pong_msg)

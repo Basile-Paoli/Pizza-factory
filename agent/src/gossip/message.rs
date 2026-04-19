@@ -2,6 +2,7 @@ use crate::gossip::retry::retry_on_interval;
 use crate::gossip::version::Version;
 use serde::{Deserialize, Serialize};
 use std::net::{SocketAddr, UdpSocket};
+use shared::{TaggedSocketAddr, TaggedTimestamp};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) enum Message {
@@ -12,17 +13,17 @@ pub(super) enum Message {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct PingMessage {
-    pub last_seen: u128,
+    pub last_seen: TaggedTimestamp,
     pub version: Version,
 }
 pub(super) type PongMessage = PingMessage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct AnnounceMessage {
-    pub(super) node_addr: SocketAddr,
+    pub(super) node_addr: TaggedSocketAddr,
     pub(super) capabilities: Vec<String>,
     pub(super) recipes: Vec<String>,
-    pub(super) peers: Vec<SocketAddr>,
+    pub(super) peers: Vec<TaggedSocketAddr>,
     pub(super) version: Version,
 }
 
@@ -87,11 +88,11 @@ mod tests {
     fn ping_round_trip() {
         let sender = bind();
         let receiver = bind();
-        let msg = Message::Ping(PingMessage { last_seen: 12345, version: v1() });
+        let msg = Message::Ping(PingMessage { last_seen: TaggedTimestamp::new(12, 13), version: v1() });
         send_message(&sender, receiver.local_addr().unwrap(), &msg).unwrap();
         match recv_msg(&receiver) {
             Message::Ping(p) => {
-                assert_eq!(p.last_seen, 12345);
+                assert_eq!(p.last_seen, TaggedTimestamp::new(12, 13));
                 assert_eq!(p.version, v1());
             }
             _ => panic!("Expected Ping"),
@@ -102,7 +103,7 @@ mod tests {
     fn pong_round_trip() {
         let sender = bind();
         let receiver = bind();
-        let msg = Message::Pong(PongMessage { last_seen: 99, version: v1() });
+        let msg = Message::Pong(PongMessage { last_seen: TaggedTimestamp::new(12, 13), version: v1() });
         send_message(&sender, receiver.local_addr().unwrap(), &msg).unwrap();
         assert!(matches!(recv_msg(&receiver), Message::Pong(_)));
     }
@@ -113,16 +114,16 @@ mod tests {
         let receiver = bind();
         let node_addr: SocketAddr = "127.0.0.1:9999".parse().unwrap();
         let msg = Message::Announce(AnnounceMessage {
-            node_addr,
+            node_addr: TaggedSocketAddr::new(node_addr),
             capabilities: vec!["cap1".into()],
             recipes: vec!["recipe1".into()],
-            peers: vec![node_addr],
+            peers: vec![TaggedSocketAddr::new(node_addr)],
             version: v1(),
         });
         send_message(&sender, receiver.local_addr().unwrap(), &msg).unwrap();
         match recv_msg(&receiver) {
             Message::Announce(a) => {
-                assert_eq!(a.node_addr, node_addr);
+                assert_eq!(a.node_addr, TaggedSocketAddr::new(node_addr));
                 assert_eq!(a.capabilities, vec!["cap1"]);
                 assert_eq!(a.recipes, vec!["recipe1"]);
                 assert_eq!(a.version, v1());

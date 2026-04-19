@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for TaggedUuid {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TaggedSocketAddr(pub SocketAddr);
 
 impl TaggedSocketAddr {

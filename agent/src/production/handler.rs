@@ -184,7 +184,7 @@ fn handle_process_payload(ctx: Arc<AgentContext>, mut payload: Payload) {
 
     let action = payload.action_sequence[payload.action_index].clone();
     eprintln!(
-        "[agent] process_payload action[{}]: '{}' (index {}/{})",
+        "[agent] process_payload action[{:?}]: '{}' (index {}/{})",
         payload.order_id,
         action.name,
         payload.action_index,

@@ -1,5 +1,6 @@
 use crate::gossip::message::{AnnounceMessage, GossipError, Message, send_message};
 use crate::gossip::state::{LocalSkills, SharedGossipState};
+use shared::TaggedSocketAddr;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::thread;
@@ -51,10 +52,14 @@ pub(super) fn send_announce_message(
         Message::Announce(AnnounceMessage {
             // Use the configured local address, not socket.local_addr(), which may return
             // 0.0.0.0 if the socket was bound to the wildcard address.
-            node_addr: state.local_address,
+            node_addr: TaggedSocketAddr::new(state.local_address),
             capabilities: local_skills.capabilities.clone(),
             recipes: local_skills.recipes.clone(),
-            peers: state.known_peers.iter().map(|p| p.address).collect(),
+            peers: state
+                .known_peers
+                .iter()
+                .map(|p| TaggedSocketAddr::new(p.address))
+                .collect(),
             version: state.version,
         })
     };
@@ -135,7 +140,7 @@ mod tests {
         send_announce_message(&sender, receiver.local_addr().unwrap(), &state, &skills()).unwrap();
 
         let a = recv_announce(&receiver);
-        assert!(a.peers.contains(&third));
+        assert!(a.peers.contains(&TaggedSocketAddr::new(third)));
     }
 
     #[test]

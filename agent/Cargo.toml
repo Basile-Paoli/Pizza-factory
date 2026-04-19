@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 ciborium = "0.2.2"
+parser = { path = "../parser" }
+shared = { path = "../shared" }
+uuid = { version = "1.0", features = ["v4"] }

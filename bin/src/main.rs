@@ -15,8 +15,8 @@
 //! pizza-factory client --agent 127.0.0.1:8001 get-recipe Margherita
 //! ```
 
-use agent::gossip::{start_gossip, LocalSkills};
-use agent::production::{start_production_server, AgentContext};
+use agent::gossip::{LocalSkills, start_gossip};
+use agent::production::{AgentContext, start_production_server};
 use clap::{Parser, Subcommand};
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -42,7 +42,6 @@ enum Commands {
         #[arg(long, default_value = "127.0.0.1")]
         ip: String,
 
-
         #[arg(short, long, value_delimiter = ',', default_value = "")]
         capabilities: Vec<String>,
 
@@ -64,21 +63,22 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum ClientAction {
-
-    Order {
-        recipe: String,
-    },
+    Order { recipe: String },
     ListRecipes,
-    GetRecipe {
-        name: String,
-    },
+    GetRecipe { name: String },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Agent { port, ip, capabilities, recipes, bootstrap } => {
+        Commands::Agent {
+            port,
+            ip,
+            capabilities,
+            recipes,
+            bootstrap,
+        } => {
             run_agent(port, ip, capabilities, recipes, bootstrap);
         }
         Commands::Client { agent, action } => {
@@ -86,7 +86,6 @@ fn main() {
         }
     }
 }
-
 
 fn run_agent(
     port: u16,
@@ -114,9 +113,12 @@ fn run_agent(
     }
     println!();
 
-    let local_skills = LocalSkills { capabilities: caps, recipes: recipe_names };
-    let (_gossip_cmd, gossip_handle) = start_gossip(addr, local_skills, bootstrap)
-        .expect("Impossible de démarrer le gossip UDP");
+    let local_skills = LocalSkills {
+        capabilities: caps,
+        recipes: recipe_names,
+    };
+    let (_gossip_cmd, gossip_handle) =
+        start_gossip(addr, local_skills, bootstrap).expect("Impossible de démarrer le gossip UDP");
 
     let ctx = AgentContext::new(addr, capabilities_set, recipe_store, gossip_handle);
 
@@ -168,19 +170,15 @@ fn run_client(agent_addr: SocketAddr, action: ClientAction) {
             }
         }
 
-        ClientAction::GetRecipe { name } => {
-            match client::get_recipe(agent_addr, &name) {
-                Ok(recipe) => println!("{}", recipe),
-                Err(e) => {
-                    eprintln!("Erreur : {}", e);
-                    std::process::exit(1);
-                }
+        ClientAction::GetRecipe { name } => match client::get_recipe(agent_addr, &name) {
+            Ok(recipe) => println!("{}", recipe),
+            Err(e) => {
+                eprintln!("Erreur : {}", e);
+                std::process::exit(1);
             }
-        }
+        },
     }
 }
-
-
 
 /// Charge les recettes depuis un fichier .recipes et les retourne sous forme de
 /// `HashMap<nom, dsl_texte>`.
@@ -250,12 +248,24 @@ fn step_to_dsl(step: &parser::Step) -> String {
                 BaseType::Cream => "cream",
             }
         ),
-        Step::AddCheese { amount, repeat } => fmt_repeat("AddCheese", &format!("amount={}", amount), *repeat),
-        Step::AddMushrooms { amount, repeat } => fmt_repeat("AddMushrooms", &format!("amount={}", amount), *repeat),
-        Step::AddPepperoni { slices, repeat } => fmt_repeat("AddPepperoni", &format!("slices={}", slices), *repeat),
-        Step::AddGarlic { cloves, repeat } => fmt_repeat("AddGarlic", &format!("cloves={}", cloves), *repeat),
-        Step::AddOregano { amount, repeat } => fmt_repeat("AddOregano", &format!("amount={}", amount), *repeat),
-        Step::AddBasil { leaves, repeat } => fmt_repeat("AddBasil", &format!("leaves={}", leaves), *repeat),
+        Step::AddCheese { amount, repeat } => {
+            fmt_repeat("AddCheese", &format!("amount={}", amount), *repeat)
+        }
+        Step::AddMushrooms { amount, repeat } => {
+            fmt_repeat("AddMushrooms", &format!("amount={}", amount), *repeat)
+        }
+        Step::AddPepperoni { slices, repeat } => {
+            fmt_repeat("AddPepperoni", &format!("slices={}", slices), *repeat)
+        }
+        Step::AddGarlic { cloves, repeat } => {
+            fmt_repeat("AddGarlic", &format!("cloves={}", cloves), *repeat)
+        }
+        Step::AddOregano { amount, repeat } => {
+            fmt_repeat("AddOregano", &format!("amount={}", amount), *repeat)
+        }
+        Step::AddBasil { leaves, repeat } => {
+            fmt_repeat("AddBasil", &format!("leaves={}", leaves), *repeat)
+        }
         Step::AddOliveOil => "AddOliveOil".into(),
         Step::Bake { duration } => format!("Bake(duration={})", duration),
     }

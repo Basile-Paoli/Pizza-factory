@@ -118,6 +118,8 @@ pub enum TcpMessage {
 
     Order { recipe_name: String },
 
+    OrderDeclined {message: String},
+
     ListRecipes {},
 
     GetRecipe { recipe_name: String },

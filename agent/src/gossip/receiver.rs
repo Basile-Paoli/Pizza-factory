@@ -100,10 +100,10 @@ fn handle_announce(
     local_skills: &Arc<LocalSkills>,
     socket: &UdpSocket,
 ) -> Result<(), GossipError> {
-    if announce.node_addr != src {
+    if announce.node_addr.0 != src {
         eprintln!(
             "Warning: Announce from {src} contains node_addr {}, ignoring",
-            announce.node_addr
+            announce.node_addr.0
         );
         return Ok(());
     }
@@ -151,7 +151,7 @@ fn handle_announce(
             announce
                 .peers
                 .iter()
-                .copied()
+                .map(|p| p.0)
                 .filter(|p| state.get_known_peer(*p).is_none() && *p != state.local_address)
                 .collect()
         };
@@ -182,7 +182,7 @@ fn handle_peer_version_change(
         announce_message
             .peers
             .iter()
-            .copied()
+            .map(|p| p.0)
             .filter(|p| !known.contains(p) && *p != state.local_address)
             .collect()
     };
@@ -282,6 +282,7 @@ mod tests {
     use crate::gossip::message::{AnnounceMessage, Message};
     use crate::gossip::state::GossipState;
     use crate::gossip::version::Version;
+    use shared::TaggedSocketAddr;
     use std::net::UdpSocket;
     use std::sync::{Arc, RwLock};
     use std::time::{Duration, Instant};
@@ -333,7 +334,7 @@ mod tests {
             &sender,
             listener_addr,
             AnnounceMessage {
-                node_addr: sender_addr,
+                node_addr: TaggedSocketAddr::new(sender_addr),
                 capabilities: vec!["x".into()],
                 recipes: vec!["y".into()],
                 peers: vec![],
@@ -361,7 +362,7 @@ mod tests {
             &sender,
             listener_addr,
             AnnounceMessage {
-                node_addr: "127.0.0.1:9999".parse().unwrap(),
+                node_addr: TaggedSocketAddr::new("127.0.0.1:9999".parse().unwrap()),
                 capabilities: vec![],
                 recipes: vec![],
                 peers: vec![],
@@ -388,10 +389,10 @@ mod tests {
             &sender,
             listener_addr,
             AnnounceMessage {
-                node_addr: sender_addr,
+                node_addr: TaggedSocketAddr::new(sender_addr),
                 capabilities: vec![],
                 recipes: vec![],
-                peers: vec![third], // introduces a peer we haven't seen
+                peers: vec![TaggedSocketAddr::new(third)], // introduces a peer we haven't seen
                 version: v(1),
             },
         );
@@ -425,7 +426,7 @@ mod tests {
             &sender,
             listener_addr,
             AnnounceMessage {
-                node_addr: sender_addr,
+                node_addr: TaggedSocketAddr::new(sender_addr),
                 capabilities: vec!["new".into()],
                 recipes: vec![],
                 peers: vec![],

@@ -68,7 +68,7 @@ pub fn order_pizza(agent_addr: SocketAddr, recipe_name: &str) -> Result<String, 
     // Attendre l'accusé de réception
     match read_message::<TcpMessage>(&mut stream)? {
         TcpMessage::OrderReceipt { order_id } => {
-            eprintln!("[client] Commande acceptée, UUID: {}", order_id);
+            eprintln!("[client] Commande acceptée, UUID: {:?}", order_id);
         }
         other => {
             return Err(ClientError::Protocol(format!(
