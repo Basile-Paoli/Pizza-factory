@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn decode_uuid_ok() {
         let raw = uuid::Uuid::parse_str("299defcb-c217-40e7-9030-af8debf647c6").unwrap();
-        let v = Value::Tag(TAG_UUID, Box::new(Value::Bytes(raw.as_bytes().to_vec())));
+        let v = Value::Tag(TAG_UUID, Box::new(Value::Text(raw.to_string())));
         let tagged = decode_uuid(v).unwrap();
         assert_eq!(tagged.inner(), &raw);
     }
