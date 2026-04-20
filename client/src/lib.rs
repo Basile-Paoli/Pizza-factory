@@ -88,6 +88,10 @@ pub fn order_pizza(agent_addr: SocketAddr, recipe_name: &str) -> Result<String, 
     // Attendre la livraison finale (peut prendre du temps)
     match read_message::<TcpMessage>(&mut stream)? {
         TcpMessage::CompletedOrder { recipe_name: _, result } => Ok(result),
+        TcpMessage::FailedOrder { recipe_name: _, error } => Err(ClientError::Declined(format!(
+            "La commande a échoué: {}",
+            error
+        ))),
         other => Err(ClientError::Protocol(format!(
             "Attendu completed_order, reçu: {:?}",
             other

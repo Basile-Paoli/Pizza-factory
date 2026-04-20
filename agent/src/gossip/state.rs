@@ -98,6 +98,13 @@ impl GossipState {
             .map(|p| p.address)
     }
 
+    pub(super) fn find_peer_for_recipe(&self, recipe: &str) -> Option<SocketAddr> {
+        self.peers
+            .iter()
+            .find(|p| p.recipes.iter().any(|r| r == recipe))
+            .map(|p| p.address)
+    }
+
     pub(super) fn get_all_peer_capabilities(&self) -> std::collections::HashSet<String> {
         self.peers
             .iter()
@@ -109,6 +116,13 @@ impl GossipState {
         self.peers
             .iter()
             .flat_map(|p| p.recipes.iter().cloned())
+            .collect()
+    }
+
+    pub(super) fn get_all_peer_recipes(&self) -> Vec<(String, SocketAddr)> {
+        self.peers
+            .iter()
+            .flat_map(|p| p.recipes.iter().map(move |r| (r.clone(), p.address)))
             .collect()
     }
 }

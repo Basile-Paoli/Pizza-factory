@@ -68,6 +68,11 @@ pub enum TcpMessage {
         message: String,
     },
 
+    FailedOrder {
+        recipe_name: String,
+        error: String,
+    },
+
     ListRecipes {},
 
     GetRecipe {

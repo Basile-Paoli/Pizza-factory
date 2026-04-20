@@ -35,6 +35,13 @@ impl GossipHandle {
             .find_peer_for_action(action)
     }
 
+    pub fn find_peer_for_recipe(&self, recipe: &str) -> Option<SocketAddr> {
+        self.state
+            .read()
+            .expect("lock gossip empoisonné")
+            .find_peer_for_recipe(recipe)
+    }
+
     pub fn get_all_peer_capabilities(&self) -> HashSet<String> {
         self.state
             .read()
@@ -47,6 +54,13 @@ impl GossipHandle {
             .read()
             .expect("lock gossip empoisonné")
             .get_all_peer_recipe_names()
+    }
+
+    pub fn get_all_peer_recipes(&self) -> Vec<(String, SocketAddr)> {
+        self.state
+            .read()
+            .expect("lock gossip empoisonné")
+            .get_all_peer_recipes()
     }
 }
 

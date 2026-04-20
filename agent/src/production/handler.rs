@@ -85,15 +85,18 @@ pub fn handle_connection(mut stream: TcpStream, ctx: Arc<AgentContext>) {
 ///
 /// La connexion avec le client reste **ouverte** pendant toute la production.
 fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: String) {
-    // 1. Chercher la recette
+    // 1. Chercher la recette (localement, puis chez un pair)
     let recipe_dsl = match ctx.recipe_store.get(&recipe_name) {
         Some(dsl) => dsl.clone(),
-        None => {
-            let reason = format!("Recette inconnue: '{}'", recipe_name);
-            eprintln!("[agent] {}", reason);
-            decline_order(&mut stream, reason);
-            return;
-        }
+        None => match fetch_recipe_from_peer(&ctx, &recipe_name) {
+            Some(dsl) => dsl,
+            None => {
+                let reason = format!("Recette inconnue: '{}'", recipe_name);
+                eprintln!("[agent] {}", reason);
+                decline_order(&mut stream, reason);
+                return;
+            }
+        },
     };
 
     // 2. Parser la recette en séquence d'actions
@@ -349,6 +352,12 @@ fn handle_list_recipes(mut stream: TcpStream, ctx: Arc<AgentContext>) {
         );
     }
 
+    for (name, host) in ctx.gossip.get_all_peer_recipes() {
+        recipes
+            .entry(name)
+            .or_insert_with(|| RecipeStatus::Remote { host: host.into() });
+    }
+
     let resp = TcpMessage::RecipeListAnswer { recipes };
     if let Err(e) = write_message(&mut stream, &resp) {
         eprintln!("[agent] Erreur envoi recipe_list_answer: {}", e);
@@ -381,6 +390,51 @@ fn decline_order(stream: &mut TcpStream, message: String) {
     let msg = TcpMessage::OrderDeclined { message };
     if let Err(e) = write_message(stream, &msg) {
         eprintln!("[agent] Erreur envoi order_declined: {}", e);
+    }
+}
+
+/// Demande le DSL d'une recette à un pair qui l'annonce via le gossip.
+///
+/// Retourne `None` si aucun pair ne connaît la recette ou si l'échange TCP échoue.
+fn fetch_recipe_from_peer(ctx: &AgentContext, recipe_name: &str) -> Option<String> {
+    let peer_addr = ctx.gossip.find_peer_for_recipe(recipe_name)?;
+    eprintln!(
+        "[agent] Recette '{}' absente localement, demande à {}",
+        recipe_name, peer_addr
+    );
+    let mut stream = match TcpStream::connect(peer_addr) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "[agent] Connexion impossible vers {} (get_recipe): {}",
+                peer_addr, e
+            );
+            return None;
+        }
+    };
+    let req = TcpMessage::GetRecipe {
+        recipe_name: recipe_name.to_string(),
+    };
+    if let Err(e) = write_message(&mut stream, &req) {
+        eprintln!("[agent] Erreur envoi get_recipe → {}: {}", peer_addr, e);
+        return None;
+    }
+    match read_message::<TcpMessage>(&mut stream) {
+        Ok(TcpMessage::RecipeAnswer { recipe }) => Some(recipe),
+        Ok(other) => {
+            eprintln!(
+                "[agent] Réponse inattendue à get_recipe depuis {}: {:?}",
+                peer_addr, other
+            );
+            None
+        }
+        Err(e) => {
+            eprintln!(
+                "[agent] Erreur lecture recipe_answer depuis {}: {}",
+                peer_addr, e
+            );
+            None
+        }
     }
 }
 
