@@ -7,4 +7,5 @@ edition = "2024"
 agent = { path = "../agent" }
 client = { path = "../client" }
 parser = { path = "../parser" }
+shared = { path = "../shared" }
 clap = { version = "4", features = ["derive"] }

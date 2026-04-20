@@ -6,13 +6,11 @@
 use crate::gossip::GossipHandle;
 use parser::PizzaParser;
 use shared::framing::{read_message, write_message};
-use shared::message::{
-    LocalRecipeStatus, Payload, RecipeStatus, TcpMessage, Update,
-};
+use shared::message::{LocalRecipeStatus, Payload, RecipeStatus, TcpMessage, Update};
 use std::collections::{HashMap, HashSet};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex, RwLock};
 use uuid::Uuid;
 
 use super::actions::{execute_action, recipe_to_action_sequence};
@@ -145,13 +143,19 @@ fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: Stri
     };
 
     // 4. Accuser réception au client
-    if let Err(e) = write_message(&mut stream, &TcpMessage::OrderReceipt {
-        order_id: order_id.into(),
-    }) {
+    if let Err(e) = write_message(
+        &mut stream,
+        &TcpMessage::OrderReceipt {
+            order_id: order_id.into(),
+        },
+    ) {
         eprintln!("[agent] Erreur envoi order_receipt: {}", e);
         return;
     }
-    eprintln!("[agent] Commande {} acceptée (recette: {})", order_id, recipe_name);
+    eprintln!(
+        "[agent] Commande {} acceptée (recette: {})",
+        order_id, recipe_name
+    );
 
     // 5. Créer un canal d'attente et enregistrer la commande
     let (tx, rx) = std::sync::mpsc::channel();
@@ -167,7 +171,10 @@ fn handle_order(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: Stri
     match rx.recv() {
         Ok(Ok(final_payload)) => {
             let result = final_payload.to_result_string();
-            let msg = TcpMessage::CompletedOrder { recipe_name, result };
+            let msg = TcpMessage::CompletedOrder {
+                recipe_name,
+                result,
+            };
             if let Err(e) = write_message(&mut stream, &msg) {
                 eprintln!("[agent] Erreur envoi completed_order: {}", e);
             } else {
@@ -336,9 +343,9 @@ fn handle_list_recipes(mut stream: TcpStream, ctx: Arc<AgentContext>) {
         };
         recipes.insert(
             name.clone(),
-            RecipeStatus {
-                local: LocalRecipeStatus { missing_actions: missing },
-            },
+            RecipeStatus::Local(LocalRecipeStatus {
+                missing_actions: missing,
+            }),
         );
     }
 
@@ -354,7 +361,9 @@ fn handle_list_recipes(mut stream: TcpStream, ctx: Arc<AgentContext>) {
 fn handle_get_recipe(mut stream: TcpStream, ctx: Arc<AgentContext>, recipe_name: String) {
     match ctx.recipe_store.get(&recipe_name) {
         Some(dsl) => {
-            let resp = TcpMessage::RecipeAnswer { recipe: dsl.clone() };
+            let resp = TcpMessage::RecipeAnswer {
+                recipe: dsl.clone(),
+            };
             if let Err(e) = write_message(&mut stream, &resp) {
                 eprintln!("[agent] Erreur envoi recipe_answer: {}", e);
             }
@@ -379,34 +388,36 @@ fn decline_order(stream: &mut TcpStream, message: String) {
 ///
 /// Chaque action de la chaîne crée une nouvelle connexion — c'est le protocole.
 fn send_process_payload(addr: SocketAddr, payload: Payload) {
-    std::thread::spawn(move || {
-        match TcpStream::connect(addr) {
-            Ok(mut stream) => {
-                let msg = TcpMessage::ProcessPayload { payload };
-                if let Err(e) = write_message(&mut stream, &msg) {
-                    eprintln!("[agent] Erreur envoi process_payload → {}: {}", addr, e);
-                }
+    std::thread::spawn(move || match TcpStream::connect(addr) {
+        Ok(mut stream) => {
+            let msg = TcpMessage::ProcessPayload { payload };
+            if let Err(e) = write_message(&mut stream, &msg) {
+                eprintln!("[agent] Erreur envoi process_payload → {}: {}", addr, e);
             }
-            Err(e) => {
-                eprintln!("[agent] Connexion impossible vers {} (process_payload): {}", addr, e);
-            }
+        }
+        Err(e) => {
+            eprintln!(
+                "[agent] Connexion impossible vers {} (process_payload): {}",
+                addr, e
+            );
         }
     });
 }
 
 /// Ouvre une nouvelle connexion TCP et envoie un `deliver`.
 fn send_deliver(addr: SocketAddr, payload: Payload, error: Option<String>) {
-    std::thread::spawn(move || {
-        match TcpStream::connect(addr) {
-            Ok(mut stream) => {
-                let msg = TcpMessage::Deliver { payload, error };
-                if let Err(e) = write_message(&mut stream, &msg) {
-                    eprintln!("[agent] Erreur envoi deliver → {}: {}", addr, e);
-                }
+    std::thread::spawn(move || match TcpStream::connect(addr) {
+        Ok(mut stream) => {
+            let msg = TcpMessage::Deliver { payload, error };
+            if let Err(e) = write_message(&mut stream, &msg) {
+                eprintln!("[agent] Erreur envoi deliver → {}: {}", addr, e);
             }
-            Err(e) => {
-                eprintln!("[agent] Connexion impossible vers {} (deliver): {}", addr, e);
-            }
+        }
+        Err(e) => {
+            eprintln!(
+                "[agent] Connexion impossible vers {} (deliver): {}",
+                addr, e
+            );
         }
     });
 }

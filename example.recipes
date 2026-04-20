@@ -15,7 +15,7 @@ Pepperoni =
 
 Marinara =
     MakeDough
-    -> AddBase()
+    -> AddBase(base_type=tomato)
     -> AddGarlic(cloves=2)
     -> AddOregano(amount=1)
     -> Bake(duration=5)

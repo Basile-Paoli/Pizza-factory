@@ -102,8 +102,10 @@ pub enum TcpMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecipeStatus {
-    pub local: LocalRecipeStatus,
+#[serde(rename_all = "snake_case")]
+pub enum RecipeStatus {
+    Local(LocalRecipeStatus),
+    Remote { host: TaggedSocketAddr },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

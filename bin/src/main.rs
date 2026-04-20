@@ -23,7 +23,7 @@ use std::io::BufRead;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
-
+use shared::RecipeStatus;
 // ─── CLI ──────────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
@@ -226,11 +226,21 @@ fn run_client(agent_addr: SocketAddr, action: ClientAction) {
                     names.sort();
                     for name in names {
                         let status = &recipes[&name];
-                        let missing = &status.local.missing_actions;
-                        if missing.is_empty() {
-                            println!("  [OK] {}", name);
-                        } else {
-                            println!("  [--] {} (manque: {})", name, missing.join(", "));
+                        match status {
+                            RecipeStatus::Local(local) => {
+                                if local.missing_actions.is_empty() {
+                                    println!("  [OK] {}", name);
+                                } else {
+                                    println!(
+                                        "  [--] {} (manque: {})",
+                                        name,
+                                        local.missing_actions.join(", ")
+                                    );
+                                }
+                            }
+                            RecipeStatus::Remote { host } => {
+                                println!("  [R] {} (disponible sur {})", name, host.0);
+                            }
                         }
                     }
                 }
